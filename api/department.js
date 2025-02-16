@@ -4,9 +4,11 @@ const Joi = require('joi')
 const app = require('../application/department')
 const validator = require('express-joi-validation').createValidator({})
 
-router.get('/', async (req, res) => {
-    app.getAll((err, result) => {
-        if (err) {
+router.route('/')
+    .get((req, res) => {
+        console.log('get all department')
+        app.getAll((err, result) => {
+            if (err) {
             return res.status(500).json({ ok: false, message: err.message });
         }
         

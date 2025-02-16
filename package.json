@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "JWT_SECRET=clinicsecretjwt123 PORT=3001 node index.js"
+    "start": "JWT_SECRET=clinicsecretjwt123 PORT=3005 node index.js"
   },
   "keywords": [],
   "author": "",

@@ -5,7 +5,7 @@ module.exports = {
         const departments = await department.find({}).catch((err) => {
             return cb(err)
         })
-        
+
         return cb(null, {ok: true, data: departments})
     },
 
