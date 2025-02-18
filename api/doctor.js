@@ -16,7 +16,7 @@ router.route('/')
 
 router.route('/admin')
     .post(validator.body(Joi.object({firstName: Joi.string().required(),
-        lastNamename: Joi.string().required(),
+        lastName: Joi.string().required(),
         specialties: Joi.array().items(Joi.string().regex(/^[0-9a-fA-F]{24}$/)).required(),
     })),
     function (req, res) {

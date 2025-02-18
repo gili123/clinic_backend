@@ -7,26 +7,19 @@ const validator = require('express-joi-validation').createValidator({})
 function loginValidate() {
     return Joi.object({
         name: Joi.string().pattern(/^(?=(?:.*[a-zA-Zא-ת]){2})[a-zA-Zא-ת\s]{2,15}$/).required(),
-        phone: Joi.string().pattern(/^(05[01234578]{1}[\s\.\-]?[1-9]{1}[0-9]{6})|(0[23489]{1}[\s\.\-]?[1-9]{1}[0-9]{6})|(07[234678]{1}[\s\.\-]?[0-9]{7})$/).required()
-    })
-}
-
-function loginValidate() {
-    return Joi.object({
-        name: Joi.string().pattern(/^(?=(?:.*[a-zA-Zא-ת]){2})[a-zA-Zא-ת\s]{2,15}$/).required(),
-        phone: Joi.string().pattern(/^(05[01234578]{1}[\s\.\-]?[1-9]{1}[0-9]{6})|(0[23489]{1}[\s\.\-]?[1-9]{1}[0-9]{6})|(07[234678]{1}[\s\.\-]?[0-9]{7})$/).required()
+        phone: Joi.string().pattern(/^((\+972[- ]?|0)([23489]|5[0123456789])\d{7}|\+?[1-9]\\d{1,14})$/).required()
     })
 }
 
 function verifyValidate() {
     return Joi.object({
         otp: Joi.number().min(1000).max(9999).required(),
-        phone: Joi.string().pattern(/^(05[01234578]{1}[\s\.\-]?[1-9]{1}[0-9]{6})|(0[23489]{1}[\s\.\-]?[1-9]{1}[0-9]{6})|(07[234678]{1}[\s\.\-]?[0-9]{7})$/).required(),
+        phone: Joi.string().pattern(/^((\+972[- ]?|0)([23489]|5[0123456789])\d{7}|\+?[1-9]\\d{1,14})$/).required(),
     });
 }
 
 userRouter.route('/login')
-    .post(validator.body(loginValidate()), function (req, res) {   
+    .post(validator.body(loginValidate()), function (req, res) {
         app.login(req.body, (err, infraRes)=> {
             if(err) {
                 return res.status(500).send({message: 'Internal Server Error'});

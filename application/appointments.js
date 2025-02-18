@@ -26,71 +26,48 @@ async function getPatientAppointments(patientId, filter, callback) {
 }
 
 async function findAvailableDays(filter, callback) {
-    let doctorIds = [];
-    const month = filter.month
 
-    if (filter.departmentId !== '0') {
-      const doctorsInDepartment = await Doctor.find({ specialties: filter.departmentId }).select("_id");
-      doctorIds = doctorsInDepartment.map(doc => doc._id);
-    }
-
-    const schedules = await Schedule.find({ doctor: { $in: doctorIds } }).populate('clinic');
-
-    if (!schedules.length) {
+    if(filter.departmentId === '0'){
       return callback(null, { ok: true, data: [] });
     }
-  
-    const appointments = await Appointment.find({
-      doctor: { $in: doctorIds },
-      $expr: {
-        $eq: [{ $month: "$date" }, parseInt(month)]
-      }
-    }).select("doctor date startTime endTime");
 
-    const availableDays = [];
-  
-    schedules.forEach(schedule => {
-      appointments.filter(appointment => appointment.doctor.equals(schedule.doctor))
-
-      const hours = availableHours(schedule, appointments)
-      if(hours.length > 0) {
-        if (!availableDays.includes(schedule.dayOfWeek)) {
-          availableDays.push(schedule.dayOfWeek);
-        }
-      }
-    })
+    const doctorsInDepartment = await Doctor.find({ specialties: filter.departmentId }).select("_id");
+    const doctorIds = doctorsInDepartment.map(doc => doc._id);
+    
+    const schedules = await Schedule.find({ doctor: { $in: doctorIds } }).select('dayOfWeek');
+    const availableDays = schedules.map(schedule => schedule.dayOfWeek)
 
     callback(null, { ok: true, data: availableDays });
 }
 
 async function findAvailableAppointments(departmentId, date, callback) {
 
-    const doctorIds = await Doctor.find({ specialties: departmentId }).select("_id");
-    
+    const doctors = await Doctor.find({ specialties: departmentId }).select("_id")
+    const doctorIds = doctors.map(doc => doc._id)
+
     if (!doctorIds.length) {
-      return callback(null, { ok: true, data: [] }); 
+      return callback(null, { ok: true, data: [] })
     }
     
     const schedules = await Schedule.find({
       doctor: { $in: doctorIds },
       dayOfWeek: moment(date).day(),
-    }).populate('doctor').populate('clinic');
+    }).populate('doctor').populate('clinic')
   
     if (!schedules.length) {
-      return callback(null, { ok: true, data: [] });
+      return callback(null, { ok: true, data: [] })
     }
 
     const appointments = await Appointment.find({
       doctor: { $in: doctorIds },
-      date: date
-    }).select("doctor startTime endTime date").populate('clinic');
+    }).select("doctor startTime endTime date").populate('clinic')
   
-    const availableAppointments = [];
-  
+    const availableAppointments = []
+
     schedules.forEach(schedule => {
-      appointments.filter(appointment => appointment.doctor.equals(schedule.doctorId))
-      const hours = availableHours(schedule, appointments, date)
-  
+      const filteredApp = appointments.filter(appointment => appointment.doctor.equals(schedule.doctor._id) && moment(appointment.date).tz(schedule.clinic.timeZone || 'UTC').format('YYYY-MM-DD') === date)
+      const hours = availableHours(schedule, filteredApp, date)
+
       availableAppointments.push({
           doctor: schedule.doctor,
           clinic: schedule.clinic,
@@ -134,50 +111,49 @@ async function findAvailableAppointments(departmentId, date, callback) {
   
   const addMinutes = (time, minutes) => {
     return getMoment(time)
-      .add(minutes, "minutes")
-      .format("HH:mm");
+      .add(minutes, "minutes");
   };
 
-  const getMoment = (time)=> {
-    return moment(time, "HH:mm")
-  }
+  const getMoment = (time) => {
+    return moment(time, "HH:mm");
+  };
 
   const availableHours = (schedule, appointments, date) => {
     const hours = [];
     const timezone = schedule.clinic.timeZone || 'UTC';
-    let currentTime = schedule.startTime;
+    let currentTime = moment.tz(`${date} ${schedule.startTime}`, "YYYY-MM-DD HH:mm", timezone);
 
-    while (currentTime < schedule.endTime) {
-        const currentDateTime = moment.tz(`${date} ${currentTime}`, "YYYY-MM-DD HH:mm", timezone);
-        const nowInClinicTZ = moment().tz(timezone);
-        
+    while (currentTime.isBefore(moment.tz(`${date} ${schedule.endTime}`, "YYYY-MM-DD HH:mm", timezone))) {
+        const currentDateTime = moment.tz(`${date} ${currentTime.format("HH:mm")}`, "YYYY-MM-DD HH:mm", timezone);
+        const nowInClinicTZ = moment().tz(timezone || 'UTC');
+
         // Remove all hours before now
         if (currentDateTime.isBefore(nowInClinicTZ)) {
             currentTime = addMinutes(currentTime, 30);
             continue;
         }
-
+        
         const endTime = addMinutes(currentTime, 30);
         
         // Check if the doctor has an appointment in the slot
         const isBusy = appointments.some(app => {
-            const appStartDateTime = moment.tz(`${app.date} ${app.startTime}`, "YYYY-MM-DD HH:mm", app.clinic.timeZone || 'UTC');
-            const appEndDateTime = moment.tz(`${app.date} ${app.endTime}`, "YYYY-MM-DD HH:mm", app.clinic.timeZone || 'UTC');
-            const slotStartDateTime = moment.tz(`${date} ${currentTime}`, "YYYY-MM-DD HH:mm", timezone);
-            const slotEndDateTime = moment.tz(`${date} ${endTime}`, "YYYY-MM-DD HH:mm", timezone);
-            
-            return !(appStartDateTime.isAfter(slotEndDateTime) || 
-                    appEndDateTime.isBefore(slotStartDateTime));
+            const appStartDateTime = moment(`${app.startTime}`, "HH:mm");
+            const appEndDateTime = moment(`${app.endTime}`, "HH:mm");
+            const slotStartDateTime = moment(`${currentTime.format("HH:mm")}`, "HH:mm");
+            const slotEndDateTime = moment(`${endTime.format("HH:mm")}`, "HH:mm");
+
+            return !(appStartDateTime.isSameOrAfter(slotEndDateTime) || 
+                    appEndDateTime.isSameOrBefore(slotStartDateTime));
         });
-        
+
         if (!isBusy) {
-            hours.push({ startTime: currentTime, endTime });
+            hours.push({ startTime: currentTime.format("HH:mm"), endTime: endTime.format("HH:mm") });
         }
         
         currentTime = endTime;
     }
     return hours;
-  }
+  };
   
 
 async function cancelAppointment(appointmentId, callback) {

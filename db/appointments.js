@@ -10,12 +10,4 @@ const appointmentSchema = new mongoose.Schema({
   endTime: { type: String, required: true, format: 'HH:mm' },
 });
 
-// appointmentSchema.pre('save', function(next) {
-//     const time = moment(this.startTime, 'HH:mm');
-//     this.date.setUTCHours(time.hours());
-//     this.date.setUTCMinutes(time.minutes());
-//     this.date = moment.tz(this.date, this.clinic.timeZone || 'UTC').format('YYYY-MM-DD HH:mm');
-//     next();
-// });
-
 module.exports = mongoose.model('Appointment', appointmentSchema);
